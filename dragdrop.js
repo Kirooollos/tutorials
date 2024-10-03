@@ -60,6 +60,7 @@ let startX, startY;
 
 // using the create class method to draw
 // crating a rectangle class
+//co
 
 class rectangle {
     constructor(x, y, width, height, color) {
