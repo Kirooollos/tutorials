@@ -3,8 +3,15 @@ let p = new Promise((resolve, reject) => {
     if (a == 2) {
         resolve('Success');
     } else {
-        p.then((message) =>{
-            console.log(message);
-        })
+        reject("Failed")
+        
     }
 })
+
+p.then((message) => {
+    console.log(message);
+}).catch((message) => {
+    console.log(message);
+})
+
+// the promises are very similar to callbacks but a cleaner way
