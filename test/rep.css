@@ -1,0 +1,41 @@
+/* Reset default margins and paddings */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: #f0f0f0;
+}
+
+#container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+/* Common square styles */
+.square {
+    position: absolute;
+    width: 80px;
+    height: 80px;
+    cursor: grab;
+    border-radius: 8px;
+    transition: transform 0.2s;
+}
+
+/* Assign different colors to each square */
+#square1 { background-color: #e74c3c; }
+#square2 { background-color: #8e44ad; }
+#square3 { background-color: #3498db; }
+#square4 { background-color: #1abc9c; }
+#square5 { background-color: #f1c40f; }
+#square6 { background-color: #e67e22; }
+#square7 { background-color: #2ecc71; }
+#square8 { background-color: #d35400; }
+#square9 { background-color: #9b59b6; }
+#square10 { background-color: #16a085; }
