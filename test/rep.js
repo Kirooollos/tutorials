@@ -110,3 +110,6 @@ document.addEventListener('DOMContentLoaded', () => {
 //verison 1.1
 
 // detached with the version 1.3
+
+
+// adding the feature branch to the master (this is the feature branch)
