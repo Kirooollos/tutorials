@@ -1,0 +1,127 @@
+    <!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deux Carrés Reliés par un Fil</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f9;
+        }
+
+        canvas {
+            border: 1px solid #333;
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="canvas" width="800" height="600"></canvas>
+
+<script>
+    // Récupération du canvas et du contexte 2D
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Propriétés des carrés
+    const squares = [
+        { x: 100, y: 100, size: 50, color: 'red', isDragging: false },
+        { x: 300, y: 200, size: 50, color: 'blue', isDragging: false }
+    ];
+
+    /**
+     * Fonction pour dessiner les carrés et le fil
+     */
+    function draw() {
+        // Effacer le canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Dessiner le fil entre les deux carrés (leurs centres)
+        const center1 = { x: squares[0].x + squares[0].size / 2, y: squares[0].y + squares[0].size / 2 };
+        const center2 = { x: squares[1].x + squares[1].size / 2, y: squares[1].y + squares[1].size / 2 };
+        
+        ctx.beginPath();
+        ctx.moveTo(center1.x, center1.y);
+        ctx.lineTo(center2.x, center2.y);
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Dessiner les deux carrés
+        squares.forEach(square => {
+            ctx.fillStyle = square.color;
+            ctx.fillRect(square.x, square.y, square.size, square.size);
+        });
+    }
+
+    /**
+     * Fonction pour vérifier si un point (x, y) est à l'intérieur d'un carré
+     * @param {number} x - Position x de la souris
+     * @param {number} y - Position y de la souris
+     * @param {object} square - Le carré à tester
+     * @returns {boolean} - Vrai si le point est à l'intérieur du carré
+     */
+    function isInsideSquare(x, y, square) {
+        return x >= square.x && x <= square.x + square.size &&
+               y >= square.y && y <= square.y + square.size;
+    }
+
+    /**
+     * Événement déclenché lors du clic de la souris
+     */
+    canvas.addEventListener('mousedown', (e) => {
+        const mouseX = e.offsetX;
+        const mouseY = e.offsetY;
+
+        // Vérifie si la souris est sur l'un des carrés
+        squares.forEach(square => {
+            if (isInsideSquare(mouseX, mouseY, square)) {
+                square.isDragging = true;
+            }
+        });
+    });
+
+    /**
+     * Événement déclenché lors du déplacement de la souris (drag)
+     */
+    canvas.addEventListener('mousemove', (e) => {
+        const mouseX = e.offsetX;
+        const mouseY = e.offsetY;
+
+        // Met à jour la position du carré en train d'être déplacé
+        squares.forEach(square => {
+            if (square.isDragging) {
+                square.x = mouseX - square.size / 2; // Centrer le carré sur la souris
+                square.y = mouseY - square.size / 2;
+                draw(); // Redessine tout le canvas
+            }
+        });
+    });
+
+    /**
+     * Événement déclenché lors du relâchement de la souris
+     */
+    canvas.addEventListener('mouseup', () => {
+        // Arrête de déplacer les carrés
+        squares.forEach(square => square.isDragging = false);
+    });
+
+    /**
+     * Événement déclenché lorsque la souris quitte le canvas
+     */
+    canvas.addEventListener('mouseleave', () => {
+        // Arrête de déplacer les carrés lorsqu'on quitte le canvas
+        squares.forEach(square => square.isDragging = false);
+    });
+
+    // Dessiner les carrés initiaux
+    draw();
+</script>
+
+</body>
+</html>

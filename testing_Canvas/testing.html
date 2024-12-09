@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grille de Carrés avec Connexions</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+        // Dimensions du canvas
+        const canvasSize = 600;
+        canvas.width = canvasSize;
+        canvas.height = canvasSize;
+
+        // Dimensions de la grille
+        const gridSize = 4;
+        const squareSize = 50;
+        const margin = 10;
+        const totalSquareSize = squareSize + margin;
+        const gridWidth = gridSize * totalSquareSize - margin;
+        const gridHeight = gridSize * totalSquareSize - margin;
+
+        // Position de la grille au centre du canvas
+        const offsetX = (canvasSize - gridWidth) / 2;
+        const offsetY = (canvasSize - gridHeight) / 2;
+
+        // Dimensions des carrés extérieurs
+        const extSquareSize = 30;
+        const extMargin = 20;
+
+        // Dessiner la grille de carrés
+        for (let row = 0; row < gridSize; row++) {
+            for (let col = 0; col < gridSize; col++) {
+                const x = offsetX + col * totalSquareSize;
+                const y = offsetY + row * totalSquareSize;
+                ctx.strokeRect(x, y, squareSize, squareSize);
+
+                // Dessiner les carrés extérieurs pour les bords et les connecter
+                if (row === 0) {
+                    const extX = x;
+                    const extY = y - extSquareSize - extMargin;
+                    ctx.strokeRect(extX, extY, extSquareSize, extSquareSize);
+                    drawLine(extX + extSquareSize / 2, extY + extSquareSize, x + squareSize / 2, y);
+                }
+                if (row === gridSize - 1) {
+                    const extX = x;
+                    const extY = y + squareSize + extMargin;
+                    ctx.strokeRect(extX, extY, extSquareSize, extSquareSize);
+                    drawLine(extX + extSquareSize / 2, extY, x + squareSize / 2, y + squareSize);
+                }
+                if (col === 0) {
+                    const extX = x - extSquareSize - extMargin;
+                    const extY = y;
+                    ctx.strokeRect(extX, extY, extSquareSize, extSquareSize);
+                    drawLine(extX + extSquareSize, extY + extSquareSize / 2, x, y + squareSize / 2);
+                }
+                if (col === gridSize - 1) {
+                    const extX = x + squareSize + extMargin;
+                    const extY = y;
+                    ctx.strokeRect(extX, extY, extSquareSize, extSquareSize);
+                    drawLine(extX, extY + extSquareSize / 2, x + squareSize, y + squareSize / 2);
+                }
+            }
+        }
+
+        // Fonction pour dessiner une ligne
+        function drawLine(x1, y1, x2, y2) {
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        }
+    </script>
+</body>
+</html>

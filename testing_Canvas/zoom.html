@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Rectangles from JSON</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+        .controls {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="myCanvas"></canvas>
+    <div class="controls">
+        <input type="range" id="zoomSlider" min="1" max="6" step="0.1" value="1">
+        <label for="zoomSlider">Zoom</label>
+    </div>
+    <script>
+        const canvas = document.getElementById('myCanvas');
+const ctx = canvas.getContext('2d');
+
+const scaleFactor = 2; // Facteur de mise à l'échelle pour haute résolution
+const padding = 10 * scaleFactor; // Padding de 10 pixels de chaque côté
+let zoomLevel = 1; // Niveau de zoom initial
+let offsetX = 0; // Décalage initial pour le panoramique
+let offsetY = 0; // Décalage initial pour le panoramique
+let isDragging = false; // Indicateur pour vérifier si le canvas est en cours de déplacement
+let startX, startY; // Coordonnées de départ pour le déplacement
+
+// Rectangle class definition
+class Rectangle {
+    constructor(x, y, width, height, color, text) {
+        this.x = (x + padding);
+        this.y = (y + padding);
+        this.width = width;
+        this.height = height;
+        this.color = color;
+        this.text = text;
+        this.isHovered = false;
+    }
+
+    draw(context) {
+        context.fillStyle = this.isHovered ? 'rgba(0, 0, 0, 0.1)' : this.color;
+        context.fillRect((this.x + offsetX) * zoomLevel, (this.y + offsetY) * zoomLevel, this.width * zoomLevel, this.height * zoomLevel);
+
+        // Set text properties
+        context.fillStyle = 'black'; // Text color
+        context.textAlign = 'center';
+        context.textBaseline = 'middle';
+
+        // Calculate the position to center the text
+        const textX = (this.x + this.width / 2 + offsetX) * zoomLevel;
+        const textY = (this.y + this.height / 2 + offsetY) * zoomLevel;
+
+        // Draw the wrapped text
+        this.fitText(context, this.text, textX, textY, (this.width - 20) * zoomLevel, (this.height - 20) * zoomLevel);
+    }
+
+    fitText(ctx, text, x, y, maxWidth, maxHeight) {
+        let fontSize = 40 * zoomLevel; // Initial font size (scaled)
+        ctx.font = `${fontSize}px Arial`;
+
+        let lines = [];
+        let lineHeight = fontSize * 1.2;
+        let totalHeight = 0;
+
+        // Reduce font size until text fits within the rectangle
+        while (true) {
+            lines = [];
+            totalHeight = 0;
+            const words = text.split(' ');
+            let line = '';
+
+            for (let n = 0; n < words.length; n++) {
+                const testLine = line + words[n] + ' ';
+                const metrics = ctx.measureText(testLine);
+                const testWidth = metrics.width;
+
+                if (testWidth > maxWidth && n > 0) {
+                    lines.push(line);
+                    line = words[n] + ' ';
+                    totalHeight += lineHeight;
+                } else {
+                    line = testLine;
+                }
+            }
+            lines.push(line);
+            totalHeight += lineHeight;
+
+            if (totalHeight <= maxHeight) {
+                break;
+            } else {
+                fontSize--;
+                ctx.font = `${fontSize}px Arial`;
+                lineHeight = fontSize * 1.2;
+            }
+        }
+
+        // Draw the text
+        let yPosition = y - (totalHeight / 2) + (lineHeight / 2);
+        for (let i = 0; i < lines.length; i++) {
+            ctx.fillText(lines[i], x, yPosition);
+            yPosition += lineHeight;
+        }
+    }
+}
+
+// Fetch rectangles data from JSON file
+fetch('rectangles.json')
+    .then(response => response.json())
+    .then(data => {
+        // Calculate the required canvas size
+        let maxX = 0;
+        let maxY = 0;
+        data.forEach(rect => {
+            const rectRight = rect.x + rect.width;
+            const rectBottom = rect.y + rect.height;
+            if (rectRight > maxX) maxX = rectRight;
+            if (rectBottom > maxY) maxY = rectBottom;
+        });
+
+        // Add padding to the calculated canvas size
+        maxX += padding * 2;
+        maxY += padding * 2;
+
+        // Set canvas size to fit all rectangles with padding
+        canvas.width = maxX * scaleFactor;
+        canvas.height = maxY * scaleFactor;
+        canvas.style.width = `${maxX}px`;
+        canvas.style.height = `${maxY}px`;
+
+        // Create and draw rectangles
+        const rectangles = data.map(rect => new Rectangle(rect.x, rect.y, rect.width, rect.height, rect.color, rect.text));
+        const drawRectangles = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            rectangles.forEach(rect => rect.draw(ctx));
+        };
+        drawRectangles();
+
+        // Handle hover effect
+        canvas.addEventListener('mousemove', (event) => {
+            const rectBounds = canvas.getBoundingClientRect();
+            const mouseX = (event.clientX - rectBounds.left) * scaleFactor;
+            const mouseY = (event.clientY - rectBounds.top) * scaleFactor;
+
+            rectangles.forEach(rect => {
+                rect.isHovered = mouseX >= (rect.x + offsetX) * zoomLevel && mouseX <= (rect.x + rect.width + offsetX) * zoomLevel && mouseY >= (rect.y + offsetY) * zoomLevel && mouseY <= (rect.y + rect.height + offsetY) * zoomLevel;
+            });
+
+            drawRectangles();
+        });
+
+        // Zoom in and out functionality using slider
+        const zoomSlider = document.getElementById('zoomSlider');
+        zoomSlider.addEventListener('input', (event) => {
+            zoomLevel = parseFloat(event.target.value);
+            drawRectangles();
+        });
+
+        // Panning functionality
+        canvas.addEventListener('mousedown', (event) => {
+            isDragging = true;
+            startX = event.clientX - offsetX;
+            startY = event.clientY - offsetY;
+        });
+
+        canvas.addEventListener('mousemove', (event) => {
+            if (isDragging) {
+                offsetX = (event.clientX - startX) / zoomLevel;
+                offsetY = (event.clientY - startY) / zoomLevel;
+                drawRectangles();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+        });
+    })
+    .catch(error => console.error('Error fetching rectangles data:', error));
+    </script>
+</body>
+</html>

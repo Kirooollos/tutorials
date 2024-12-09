@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Rectangles with Borders</title>
+    <style>
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .canvas-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+            position: relative;
+        }
+        canvas {
+            border: 1px solid black;
+        }
+        .controls {
+            margin-top: 10px;
+        }
+        .interface {
+            position: absolute;
+            background-color: lightgray;
+            border: 1px solid black;
+            padding: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="canvas-container">
+        <canvas id="myCanvas" width="600" height="600"></canvas>
+    </div>
+    <div class="controls">
+        <input type="range" id="zoomSlider" min="1" max="6" step="0.1" value="1">
+        <label for="zoomSlider">Zoom</label>
+        <br>
+        <input type="range" id="horizontalSlider" min="-200" max="200" step="1" value="0">
+        <label for="horizontalSlider">Horizontal Pan</label>
+        <br>
+        <input type="range" id="verticalSlider" min="-200" max="200" step="1" value="0">
+        <label for="verticalSlider">Vertical Pan</label>
+        <br>
+        <button id="flipButton">Flip Canvas</button>
+    </div>
+    <script>
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const scaleFactor = 2; // Facteur de mise à l'échelle pour haute résolution
+        const padding = 10 * scaleFactor; // Padding de 10 pixels de chaque côté
+        let zoomLevel = 1; // Niveau de zoom initial
+        let offsetX = 0; // Décalage initial pour le panoramique
+        let offsetY = 0; // Décalage initial pour le panoramique
+        let isDragging = false; // Indicateur pour vérifier si le canvas est en cours de déplacement
+        let startX, startY; // Coordonnées de départ pour le déplacement
+
+        // Rectangle class definition
+        class Rectangle {
+            constructor(x, y, width, height, color, text) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+                this.color = color;
+                this.text = text;
+                this.isHovered = false;
+            }
+
+            draw(context) {
+                context.fillStyle = this.isHovered ? 'rgba(0, 0, 0, 0.1)' : this.color;
+                context.fillRect((this.x + offsetX) * zoomLevel, (this.y + offsetY) * zoomLevel, this.width * zoomLevel, this.height * zoomLevel);
+
+                // Draw the border inside the rectangle
+                context.strokeStyle = 'black'; // Border color
+                context.lineWidth = 2; // Border width
+                context.strokeRect((this.x + offsetX) * zoomLevel, (this.y + offsetY) * zoomLevel, this.width * zoomLevel, this.height * zoomLevel);
+
+                // Set text properties
+                context.fillStyle = 'black'; // Text color
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+
+                // Calculate the position to center the text
+                const textX = (this.x + this.width / 2 + offsetX) * zoomLevel;
+                const textY = (this.y + this.height / 2 + offsetY) * zoomLevel;
+
+                // Draw the wrapped text
+                this.fitText(context, this.text, textX, textY, (this.width - 20) * zoomLevel, (this.height - 20) * zoomLevel);
+            }
+
+            fitText(ctx, text, x, y, maxWidth, maxHeight) {
+                let fontSize = 20 * zoomLevel; // Initial font size (scaled)
+                ctx.font = `${fontSize}px Arial`;
+
+                let lines = [];
+                let lineHeight = fontSize * 1.2;
+                let totalHeight = 0;
+
+                // Reduce font size until text fits within the rectangle
+                while (true) {
+                    lines = [];
+                    totalHeight = 0;
+                    const words = text.split(' ');
+                    let line = '';
+
+                    for (let n = 0; n < words.length; n++) {
+                        const testLine = line + words[n] + ' ';
+                        const metrics = ctx.measureText(testLine);
+                        const testWidth = metrics.width;
+
+                        if (testWidth > maxWidth && n > 0) {
+                            lines.push(line);
+                            line = words[n] + ' ';
+                            totalHeight += lineHeight;
+                        } else {
+                            line = testLine;
+                        }
+                    }
+                    lines.push(line);
+                    totalHeight += lineHeight;
+
+                    if (totalHeight <= maxHeight) {
+                        break;
+                    } else {
+                        fontSize--;
+                        ctx.font = `${fontSize}px Arial`;
+                        lineHeight = fontSize * 1.2;
+                    }
+                }
+
+                // Draw the text
+                let yPosition = y - (totalHeight / 2) + (lineHeight / 2);
+                for (let i = 0; i < lines.length; i++) {
+                    ctx.fillText(lines[i], x, yPosition);
+                    yPosition += lineHeight;
+                }
+            }
+        }
+
+        // Create a grid of rectangles
+        const gridSize = 5;
+        const rectSize = 50;
+        const rects = [];
+        for (let row = 0; row < gridSize; row++) {
+            for (let col = 0; col < gridSize; col++) {
+                const x = col * (rectSize + 10) + padding;
+                const y = row * (rectSize + 10) + padding;
+                const rect = new Rectangle(x, y, rectSize, rectSize, 'lightblue', `R${row}${col}`);
+                rects.push(rect);
+            }
+        }
+
+        // Draw the grid and interfaces
+        const drawGrid = () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            rects.forEach(rect => rect.draw(ctx));
+            drawInterfaces(rects);
+        };
+
+        // Draw interfaces and connections
+        const drawInterfaces = (rectangles) => {
+            const container = document.querySelector('.canvas-container');
+            container.querySelectorAll('.interface').forEach(el => el.remove());
+
+            rectangles.forEach(rect => {
+                if (isOnEdge(rect)) {
+                    const interfaceElement = document.createElement('div');
+                    interfaceElement.className = 'interface';
+                    const offset = 20; // Décalage pour les interfaces
+                    if (rect.x === padding) {
+                        // Interface à gauche
+                        interfaceElement.style.left = `${canvas.offsetLeft - offset}px`;
+                        interfaceElement.style.top = `${(rect.y + offsetY) * zoomLevel + canvas.offsetTop}px`;
+                    } else if (rect.y === padding) {
+                        // Interface en haut
+                        interfaceElement.style.left = `${(rect.x + offsetX) * zoomLevel + canvas.offsetLeft}px`;
+                        interfaceElement.style.top = `${canvas.offsetTop - offset}px`;
+                    } else if (rect.x + rect.width === canvas.width - padding) {
+                        // Interface à droite
+                        interfaceElement.style.left = `${canvas.offsetLeft + canvas.width + offset}px`;
+                        interfaceElement.style.top = `${(rect.y + offsetY) * zoomLevel + canvas.offsetTop}px`;
+                    } else if (rect.y + rect.height === canvas.height - padding) {
+                        // Interface en bas
+                        interfaceElement.style.left = `${(rect.x + offsetX) * zoomLevel + canvas.offsetLeft}px`;
+                        interfaceElement.style.top = `${canvas.offsetTop + canvas.height + offset}px`;
+                    }
+                    interfaceElement.style.width = `${rect.width * zoomLevel}px`;
+                    interfaceElement.style.height = `${rect.height * zoomLevel}px`;
+                    interfaceElement.innerText = rect.text;
+                    container.appendChild(interfaceElement);
+
+                    drawLine(rect, interfaceElement);
+                }
+            });
+        };
+
+        const isOnEdge = (rect) => {
+            return rect.x === padding || rect.y === padding || rect.x + rect.width === canvas.width - padding || rect.y + rect.height === canvas.height - padding;
+        };
+
+        const drawLine = (rect, interfaceElement) => {
+            const rectCenterX = (rect.x + rect.width / 2 + offsetX) * zoomLevel;
+            const rectCenterY = (rect.y + rect.height / 2 + offsetY) * zoomLevel;
+            const interfaceCenterX = parseFloat(interfaceElement.style.left) + parseFloat(interfaceElement.style.width) / 2;
+            const interfaceCenterY = parseFloat(interfaceElement.style.top) + parseFloat(interfaceElement.style.height) / 2;
+
+            ctx.beginPath();
+            ctx.moveTo(rectCenterX, rectCenterY);
+            ctx.lineTo(interfaceCenterX - canvas.offsetLeft, interfaceCenterY - canvas.offsetTop);
+            ctx.strokeStyle = rect.color;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        };
+
+        // Initial draw
+        drawGrid();
+
+        // Handle hover effect
+        canvas.addEventListener('mousemove', (event) => {
+            const rectBounds = canvas.getBoundingClientRect();
+            const mouseX = (event.clientX - rectBounds.left) * scaleFactor;
+            const mouseY = (event.clientY - rectBounds.top) * scaleFactor;
+
+            rects.forEach(rect => {
+                rect.isHovered = mouseX >= (rect.x + offsetX) * zoomLevel && mouseX <= (rect.x + rect.width + offsetX) * zoomLevel && mouseY >= (rect.y + offsetY) * zoomLevel && mouseY <= (rect.y + rect.height + offsetY) * zoomLevel;
+            });
+
+            drawGrid();
+        });
+
+        // Zoom in and out functionality using slider
+        const zoomSlider = document.getElementById('zoomSlider');
+        zoomSlider.addEventListener('input', (event) => {
+            zoomLevel = parseFloat(event.target.value);
+            drawGrid();
+        });
+
+        // Horizontal panning functionality using slider
+        const horizontalSlider = document.getElementById('horizontalSlider');
+        horizontalSlider.addEventListener('input', (event) => {
+            offsetX = parseFloat(event.target.value);
+            drawGrid();
+        });
+
+        // Vertical panning functionality using slider
+        const verticalSlider = document.getElementById('verticalSlider');
+        verticalSlider.addEventListener('input', (event) => {
+            offsetY = parseFloat(event.target.value);
+            drawGrid();
+        });
+
+        // Panning functionality with mouse
+        canvas.addEventListener('mousedown', (event) => {
+            isDragging = true;
+            startX = event.clientX - offsetX;
+            startY = event.clientY - offsetY;
+        });
+
+        canvas.addEventListener('mousemove', (event) => {
+            if (isDragging) {
+                offsetX = (event.clientX - startX) / zoomLevel;
+                offsetY = (event.clientY - startY) / zoomLevel;
+                drawGrid();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDragging = false;
+        });
+
+        // Flip canvas functionality
+        const flipButton = document.getElementById('flipButton');
+        flipButton.addEventListener('click', () => {
+            flipCanvas(rects, canvas.width / scaleFactor);
+            drawGrid();
+        });
+
+        function flipCanvas(rectangles, canvasWidth) {
+            rectangles.forEach(rect => {
+                rect.x = canvasWidth - (rect.x + rect.width - padding * 2) - padding;
+            });
+        }
+    </script>
+</body>
+</html>
